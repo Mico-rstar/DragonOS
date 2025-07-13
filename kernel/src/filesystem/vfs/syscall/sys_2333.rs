@@ -15,7 +15,7 @@ impl Syscall for Sys2333Handle
 
     fn handle(&self, args: &[usize], frame: &mut crate::arch::interrupt::TrapFrame) -> Result<usize, system_error::SystemError> {
         info!("syscall 2333 called");
-        Ok(0)
+        Ok(6666)
     }
 
     fn entry_format(&self, args: &[usize]) -> Vec<FormattedSyscallParam> {
