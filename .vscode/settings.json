@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "asm.h": "c",
+        "socket.h": "c",
+        "syscall.h": "c",
+        "unistd.h": "c",
+        "unistd_64.h": "c",
+        "stdlib.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled",
     "esbonio.sphinx.confDir": "",
