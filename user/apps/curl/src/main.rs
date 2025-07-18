@@ -1,6 +1,5 @@
 use clap::{Arg, Command};
-use std::io::Read;
-use std::io::Write;
+
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::{SocketAddr, TcpStream};
 use url::{Host, ParseError, Url};
@@ -9,9 +8,8 @@ mod parser;
 mod requester;
 
 // url_str -> [ip:port, ...] 
-fn to_adders(url_str: &str) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-    let url = Url::parse(url_str)?;
-    println!("url={:?}", url);
+fn to_adders(url: &Url) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+    
     let mut res = vec![];
 
     match url.host() {
@@ -88,27 +86,19 @@ fn main() {
     let url_str = matches.get_one::<String>("url").unwrap();
     println!("url: {}", url_str);
 
-    if let Ok(addrs) = to_adders(url_str) {
+    let url = Url::parse(url_str).unwrap();
+    println!("url={:?}", url);
+
+    if let Ok(addrs) = to_adders(&url) {
         println!("addrs: {:?}", addrs);
 
-        if let Ok(mut stream) = TcpStream::connect(&addrs[..]) {
-            println!("Connected to the server!");
-
-            if let Ok(_) = stream.write_all(b"Hello, server!") {}
-
-            // 创建一个缓冲区来接收数据
-            let mut buffer = [0; 1024];
-
-            // 读取服务器返回的数据
-            if let Ok(bytes_read) = stream.read(&mut buffer) {
-                println!(
-                    "Received: {}",
-                    String::from_utf8_lossy(&buffer[..bytes_read])
-                )
-            }
-        } else {
-            println!("Couldn't connect to server...");
+        // 使用默认header进行get
+        if let Ok(_) = requester::get(&addrs, &url)
+        {
+            println!("get sucessfully");
         }
+
+
     } else {
         println!("error in to_addrs");
         return;
