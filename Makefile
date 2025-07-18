@@ -146,7 +146,12 @@ run-nographic: check_arch
 	$(MAKE) write_diskimage || exit 1
 	$(MAKE) qemu-nographic
 
-# 在docker中编译，并启动QEMU
+user-debug: check_arch
+	$(MAKE) user -j $(NPROCS)
+	$(MAKE) write_diskimage || exit 1
+	$(MAKE) qemu-nographic
+
+# 在docker中编译，并启动QEMU0
 run-docker: check_arch
 	@echo "使用docker构建并运行"
 	sudo bash tools/build_in_docker.sh || exit 1
