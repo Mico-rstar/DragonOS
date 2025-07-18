@@ -1,9 +1,57 @@
 use clap::{Arg, Command};
+use std::io::Read;
+use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{SocketAddr, TcpStream};
 use url::{Host, ParseError, Url};
 
 mod parser;
 mod requester;
+
+// url_str -> [ip:port, ...] 
+fn to_adders(url_str: &str) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+    let url = Url::parse(url_str)?;
+    println!("url={:?}", url);
+    let mut res = vec![];
+
+    match url.host() {
+        Some(Host::Domain(domain)) => {
+            println!("domain: {}", domain);
+            // dns 解析
+            match parser::resolve_domain(domain) {
+                Ok(ips) => {
+                    println!("Resolved IP addresses for {}: {:?}", domain, ips);
+                    assert!(!ips.is_empty(), "Should resolve to at least one IP");
+
+                    let mut port;
+                    if let Some(p) = url.port() {
+                        port = p;
+                    } else {
+                        port = 80;
+                    }
+                    for ipi in &ips {
+                        res.push(SocketAddr::new(*ipi, port));
+                    }
+                    return Ok(res);
+                }
+                Err(e) => return Err(format!("Failed to resolve domain: {}", e).into()),
+            }
+        }
+        Some(Host::Ipv6(_)) => return Err("not support ipv6".into()),
+        // 明文ip
+        Some(Host::Ipv4(ips)) => {
+            let mut port;
+            if let Some(p) = url.port() {
+                port = p;
+            } else {
+                port = 80;
+            }
+            res.push(SocketAddr::new(IpAddr::V4(ips), port));
+            return Ok(res);
+        }
+        None => return Err("miss host name".into()),
+    }
+}
 
 fn main() {
     // 定义命令行界面
@@ -40,36 +88,35 @@ fn main() {
     let url_str = matches.get_one::<String>("url").unwrap();
     println!("url: {}", url_str);
 
-    // 解析url
-    if let Ok(url) = Url::parse(url_str) {
-        println!("url parse successfully");
+    if let Ok(addrs) = to_adders(url_str) {
+        println!("addrs: {:?}", addrs);
 
-        match url.host() {
-            Some(Host::Domain(domain)) => {
-                println!("domain: {}", domain);
-                // dns 解析
-                match parser::resolve_domain(domain) {
-                    Ok(ips) => {
-                        println!("Resolved IP addresses for {}: {:?}", domain, ips);
-                        assert!(!ips.is_empty(), "Should resolve to at least one IP");
-                    }
-                    Err(e) => panic!("Failed to resolve domain: {}", e),
-                }
+        if let Ok(mut stream) = TcpStream::connect(&addrs[..]) {
+            println!("Connected to the server!");
+
+            if let Ok(_) = stream.write_all(b"Hello, server!") {}
+
+            // 创建一个缓冲区来接收数据
+            let mut buffer = [0; 1024];
+
+            // 读取服务器返回的数据
+            if let Ok(bytes_read) = stream.read(&mut buffer) {
+                println!(
+                    "Received: {}",
+                    String::from_utf8_lossy(&buffer[..bytes_read])
+                )
             }
-            Some(Host::Ipv6(_)) => println!("not support ipv6"),
-            _ => (),
+        } else {
+            println!("Couldn't connect to server...");
         }
-
-        // 默认为GET
-        let method = matches.get_one::<String>("method").unwrap();
-        println!("method: {}", method);
-
-        // 发送get请求
-        
     } else {
-        println!("url pattern not correct!");
+        println!("error in to_addrs");
         return;
     }
+
+    // 默认为GET
+    let method = matches.get_one::<String>("method").unwrap();
+    println!("method: {}", method);
 
     // if matches.get_flag("header") {
     //     println!("header: {}", header);
