@@ -1,0 +1,13 @@
+[package]
+name = "curl"
+version = "0.1.0"
+edition = "2021"
+description = "simple curl"
+authors = [ "Rene <2114678406@qq.com>" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+url = "2.4"
+trust-dns-resolver = "0.20"
