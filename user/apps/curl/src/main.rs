@@ -92,10 +92,10 @@ fn main() {
         println!("addrs: {:?}", addrs);
 
         // 使用默认header进行get
-
-        let response = requester::get(&addrs, &url).unwrap();
+        let request = requester::request::new(&url);
+        let response = request.get(&addrs).unwrap();
         // println!("response: {}\n", response);
-        let body = requester::extract_body(response.as_str());
+        let body = requester::request::extract_body(response.as_str());
         println!("body:\n {}", body);
     } else {
         println!("error in to_addrs");
