@@ -1,15 +1,14 @@
 use clap::{Arg, Command};
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::net::{SocketAddr, TcpStream};
-use url::{Host, ParseError, Url};
+use std::net::{IpAddr};
+use std::net::{SocketAddr};
+use url::{Host, Url};
 
 mod parser;
 mod requester;
 
-// url_str -> [ip:port, ...] 
+// url_str -> [ip:port, ...]
 fn to_adders(url: &Url) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-    
     let mut res = vec![];
 
     match url.host() {
@@ -21,7 +20,7 @@ fn to_adders(url: &Url) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
                     println!("Resolved IP addresses for {}: {:?}", domain, ips);
                     assert!(!ips.is_empty(), "Should resolve to at least one IP");
 
-                    let mut port;
+                    let port;
                     if let Some(p) = url.port() {
                         port = p;
                     } else {
@@ -38,7 +37,7 @@ fn to_adders(url: &Url) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
         Some(Host::Ipv6(_)) => return Err("not support ipv6".into()),
         // 明文ip
         Some(Host::Ipv4(ips)) => {
-            let mut port;
+            let port;
             if let Some(p) = url.port() {
                 port = p;
             } else {
@@ -93,12 +92,11 @@ fn main() {
         println!("addrs: {:?}", addrs);
 
         // 使用默认header进行get
-        if let Ok(_) = requester::get(&addrs, &url)
-        {
-            println!("get sucessfully");
-        }
 
-
+        let response = requester::get(&addrs, &url).unwrap();
+        // println!("response: {}\n", response);
+        let body = requester::extract_body(response.as_str());
+        println!("body:\n {}", body);
     } else {
         println!("error in to_addrs");
         return;

@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::net::{SocketAddr, TcpStream};
 use std::io::Read;
 use std::io::Write;
@@ -9,7 +8,7 @@ use std::io::Write;
 
 // }
 
-pub fn get(addrs: &Vec<SocketAddr>, url: &url::Url) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get(addrs: &Vec<SocketAddr>, url: &url::Url) -> Result<String, Box<dyn std::error::Error>> {
     let mut stream = TcpStream::connect(&addrs[..])?;
 
     println!("Connected to the server!");
@@ -42,14 +41,23 @@ pub fn get(addrs: &Vec<SocketAddr>, url: &url::Url) -> Result<(), Box<dyn std::e
     stream.write_all(request.as_bytes())?;
 
     // 创建一个缓冲区来接收数据
-    let mut buffer = [0; 1024];
+    let mut buffer = String::new();
 
     // 读取服务器返回的数据
-    if let Ok(bytes_read) = stream.read(&mut buffer) {
-        println!(
-            "Received: {}",
-            String::from_utf8_lossy(&buffer[..bytes_read])
-        );
+    stream.read_to_string(&mut buffer)?;
+    Ok(buffer)
+}
+
+
+pub fn extract_body(response: &str) -> String {
+    // 查找第一个空行（分隔头部和body）
+    if let Some(empty_line_pos) = response.find("\r\n\r\n") {
+        // 跳过空行后的部分就是body
+        String::from(&response[empty_line_pos + 4..])
+    } else if let Some(empty_line_pos) = response.find("\n\n") {
+        // 有些响应可能只用单个换行符
+        String::from(&response[empty_line_pos + 2..])
+    } else {
+        String::new()
     }
-    Ok(())
 }
