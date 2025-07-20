@@ -1,7 +1,7 @@
 use clap::{Arg, Command};
 
-use std::net::{IpAddr};
-use std::net::{SocketAddr};
+use std::net::IpAddr;
+use std::net::SocketAddr;
 use url::{Host, Url};
 
 mod parser;
@@ -64,6 +64,7 @@ fn main() {
                 .short('X')
                 .long("request")
                 .value_name("STRING")
+                .num_args(1)
                 .default_value("GET"),
         )
         .arg(
@@ -71,6 +72,7 @@ fn main() {
                 .help("Set request header")
                 .short('H')
                 .long("header")
+                .num_args(1)
                 .value_name("STRING"),
         )
         .arg(
@@ -78,43 +80,45 @@ fn main() {
                 .help("Set data for request")
                 .short('d')
                 .long("data")
+                .num_args(1)
                 .value_name("STRING"),
         )
         .get_matches();
 
     let url_str = matches.get_one::<String>("url").unwrap();
-    println!("url: {}", url_str);
 
     let url = Url::parse(url_str).unwrap();
-    println!("url={:?}", url);
 
-    if let Ok(addrs) = to_adders(&url) {
-        println!("addrs: {:?}", addrs);
+    let addrs = to_adders(&url).unwrap();
 
-        // 使用默认header进行get
-        let request = requester::request::new(&url);
-        let response = request.get(&addrs).unwrap();
-        // println!("response: {}\n", response);
-        let body = requester::request::extract_body(response.as_str());
-        println!("body:\n {}", body);
-    } else {
-        println!("error in to_addrs");
-        return;
+    let mut request = requester::request::new(&url);
+
+    if let Some(header) = matches.get_one::<String>("header") {
+        request.set_header(&header);
+    }
+
+    if let Some(data) = matches.get_one::<String>("data") {
+        request.set_data(&data);
     }
 
     // 默认为GET
     let method = matches.get_one::<String>("method").unwrap();
-    println!("method: {}", method);
+
+    if method == "GET" {
+        // 使用默认header进行get
+        let response = request.get(&addrs).unwrap();
+        let body = requester::request::extract_body(response.as_str());
+        println!("{}", body);
+    } else if method == "POST" {
+        // 使用默认header进行get
+        let response = request.post(&addrs).unwrap();
+        let body = requester::request::extract_body(response.as_str());
+        println!("{}", body);
+    }
 
     // if matches.get_flag("header") {
     //     println!("header: {}", header);
     // }
 
-    if let Some(header) = matches.get_one::<String>("header") {
-        println!("header: {}", header);
-    }
-
-    if let Some(data) = matches.get_one::<String>("data") {
-        println!("data: {}", data);
-    }
+    
 }

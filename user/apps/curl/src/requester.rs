@@ -8,53 +8,120 @@ use std::net::{SocketAddr, TcpStream};
 
 // }
 
-pub struct request  {
-    header: String,
+enum Method {
+    GET,
+    POST,
+}
+
+pub struct request {
+    data: Option<String>,
+    header: Option<String>,
+    url: url::Url,
 }
 
 impl request {
-    pub fn new(url: &url::Url) -> Self {
+    pub fn new(_url: &url::Url) -> Self {
+        request {
+            data: None,
+            header: None,
+            url: _url.clone(),
+        }
+    }
+
+    fn construct_header(&mut self, method: Method) {
         // 构造请求路径 (如果路径为空则使用 "/")
-        let path = if url.path().is_empty() {
+        let path = if self.url.path().is_empty() {
             "/"
         } else {
-            url.path()
+            self.url.path()
         };
 
-        let host = url.host_str().ok_or(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "URL must have a host",
-        )).unwrap();
+        let host = self.url
+            .host_str()
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "URL must have a host",
+            ))
+            .unwrap();
 
         // 构造查询字符串 (如果有的话)
-        let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
+        let query = self.url.query().map(|q| format!("?{}", q)).unwrap_or_default();
 
-        request {
-            header: format!(
-                "GET {}{} HTTP/1.1\r\n\
-         Host: {}\r\n\
-         User-Agent: mini-curl/1.0\r\n\
-         Connection: close\r\n\r\n",
-                path, query, host
-            ),
+        // data length
+        let dl = self.data.clone().unwrap_or_default().len();
+
+        match method {
+            Method::GET => {
+                self.header = Some(format!(
+                    "GET {}{} HTTP/1.1\r\n\
+                    Host: {}\r\n\
+                    Content-Type: application/x-www-form-urlencoded\r\n\
+                    Content-Length: {}\r\n\
+                    Connection: close\r\n\r\n\
+                    ",
+                    path, query, host, dl
+                ));
+            }
+            Method::POST => {
+                self.header = Some(format!(
+                    "POST {} HTTP/1.1\r\n\
+                Host: {}\r\n\
+                Content-Type: application/x-www-form-urlencoded\r\n\
+                Content-Length: {}\r\n\
+                Connection: close\r\n\r\n\
+                ",path, host, dl)
+            );
+            }
         }
     }
 
     pub fn set_header(&mut self, _h: &String) -> &mut Self {
-        self.header = _h.clone();
+        self.header = Some(_h.clone());
+        self
+    }
+    pub fn set_data(&mut self, _d: &String) -> &mut Self {
+        self.data = Some(_d.clone());
         self
     }
 
-    pub fn get(
-        &self,
-        addrs: &Vec<SocketAddr>
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn get(&mut self, addrs: &Vec<SocketAddr>) -> Result<String, Box<dyn std::error::Error>> {
         let mut stream = TcpStream::connect(&addrs[..])?;
 
-        println!("Connected to the server!");
 
         // 构造完整的请求头
-        let request = &self.header;
+        self.construct_header(Method::GET);
+        let request =  &self.header.clone().unwrap_or_default();
+
+        // 发送请求
+        stream.write_all(request.as_bytes())?;
+
+        // 创建一个缓冲区来接收数据
+        let mut buffer = String::new();
+
+        // 读取服务器返回的数据
+        stream.read_to_string(&mut buffer)?;
+        Ok(buffer)
+        //println!("buffer: {}", buffer);
+
+    //     let mut buffer = [0; 1024];
+
+    // // 读取服务器返回的数据
+    // if let Ok(bytes_read) = stream.read(&mut buffer) {
+    //     println!(
+    //         "Received: {}",
+    //         String::from_utf8_lossy(&buffer[..bytes_read])
+    //     );
+    // };
+    //Ok(())
+    }
+
+    pub fn post(&mut self, addrs: &Vec<SocketAddr>) -> Result<String, Box<dyn std::error::Error>> {
+        let mut stream = TcpStream::connect(&addrs[..])?;
+
+        // 构造完整的请求头
+        self.construct_header(Method::POST);
+        let request = self.header.clone().unwrap_or_default() + &self.data.clone().unwrap_or_default();
+        println!("request: {}", request);
 
         // 发送请求
         stream.write_all(request.as_bytes())?;
