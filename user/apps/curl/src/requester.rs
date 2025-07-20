@@ -36,7 +36,8 @@ impl request {
             self.url.path()
         };
 
-        let host = self.url
+        let host = self
+            .url
             .host_str()
             .ok_or(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -45,7 +46,11 @@ impl request {
             .unwrap();
 
         // 构造查询字符串 (如果有的话)
-        let query = self.url.query().map(|q| format!("?{}", q)).unwrap_or_default();
+        let query = self
+            .url
+            .query()
+            .map(|q| format!("?{}", q))
+            .unwrap_or_default();
 
         // data length
         let dl = self.data.clone().unwrap_or_default().len();
@@ -69,8 +74,9 @@ impl request {
                 Content-Type: application/x-www-form-urlencoded\r\n\
                 Content-Length: {}\r\n\
                 Connection: close\r\n\r\n\
-                ",path, host, dl)
-            );
+                ",
+                    path, host, dl
+                ));
             }
         }
     }
@@ -84,54 +90,85 @@ impl request {
         self
     }
 
-    pub fn get(&mut self, addrs: &Vec<SocketAddr>) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn get(&mut self, addrs: &Vec<SocketAddr>) -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = TcpStream::connect(&addrs[..])?;
-
 
         // 构造完整的请求头
         self.construct_header(Method::GET);
-        let request =  &self.header.clone().unwrap_or_default();
+        let request = &self.header.clone().unwrap_or_default();
 
         // 发送请求
         stream.write_all(request.as_bytes())?;
 
         // 创建一个缓冲区来接收数据
-        let mut buffer = String::new();
+        // let mut buffer = String::new();
 
         // 读取服务器返回的数据
-        stream.read_to_string(&mut buffer)?;
-        Ok(buffer)
+        // stream.read_to_string(&mut buffer)?;
+        // Ok(buffer)
         //println!("buffer: {}", buffer);
 
-    //     let mut buffer = [0; 1024];
+        let mut buffer = [0; 1024];
 
-    // // 读取服务器返回的数据
-    // if let Ok(bytes_read) = stream.read(&mut buffer) {
-    //     println!(
-    //         "Received: {}",
-    //         String::from_utf8_lossy(&buffer[..bytes_read])
-    //     );
-    // };
-    //Ok(())
+        // 读取服务器返回的数据
+        loop {
+            match stream.read(&mut buffer) {
+                Ok(n) => {
+                    if n == 0 {
+                        break;
+                    };
+                    println!("{}", String::from_utf8_lossy(&buffer[..n]));
+                }
+                Err(e) => {
+                    // 与linux不一致
+                    println!("与linux不一致: {:?}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
     }
 
-    pub fn post(&mut self, addrs: &Vec<SocketAddr>) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn post(&mut self, addrs: &Vec<SocketAddr>) -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = TcpStream::connect(&addrs[..])?;
 
         // 构造完整的请求头
         self.construct_header(Method::POST);
-        let request = self.header.clone().unwrap_or_default() + &self.data.clone().unwrap_or_default();
+        let request =
+            self.header.clone().unwrap_or_default() + &self.data.clone().unwrap_or_default();
         println!("request: {}", request);
 
         // 发送请求
         stream.write_all(request.as_bytes())?;
 
-        // 创建一个缓冲区来接收数据
-        let mut buffer = String::new();
+        // // 创建一个缓冲区来接收数据
+        // let mut buffer = String::new();
+
+        // // 读取服务器返回的数据
+        // stream.read_to_string(&mut buffer)?;
+        // Ok(buffer)
+
+        let mut buffer = [0; 1024];
 
         // 读取服务器返回的数据
-        stream.read_to_string(&mut buffer)?;
-        Ok(buffer)
+        loop {
+            match stream.read(&mut buffer) {
+                Ok(n) => {
+                    if n == 0 {
+                        break;
+                    };
+                    println!("{}", String::from_utf8_lossy(&buffer[..n]));
+                }
+                Err(e) => {
+                    // 与linux不一致
+                    println!("与linux不一致: {:?}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn extract_body(response: &str) -> String {

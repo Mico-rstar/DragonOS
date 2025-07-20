@@ -57,7 +57,6 @@ fn main() {
         .author("Rene <2114678406@qq.com>")
         .about("A simple curl in rust")
         // 添加参数和选项
-        .arg(Arg::new("url").help("Sets the url").required(true).index(1))
         .arg(
             Arg::new("method")
                 .help("Set request method")
@@ -83,6 +82,7 @@ fn main() {
                 .num_args(1)
                 .value_name("STRING"),
         )
+        .arg(Arg::new("url").help("Sets the url").required(true))
         .get_matches();
 
     let url_str = matches.get_one::<String>("url").unwrap();
@@ -106,19 +106,11 @@ fn main() {
 
     if method == "GET" {
         // 使用默认header进行get
-        let response = request.get(&addrs).unwrap();
-        let body = requester::request::extract_body(response.as_str());
-        println!("{}", body);
+        request.get(&addrs).unwrap();
     } else if method == "POST" {
         // 使用默认header进行get
-        let response = request.post(&addrs).unwrap();
-        let body = requester::request::extract_body(response.as_str());
-        println!("{}", body);
+        request.post(&addrs).unwrap();
     }
-
-    // if matches.get_flag("header") {
-    //     println!("header: {}", header);
-    // }
 
     
 }
