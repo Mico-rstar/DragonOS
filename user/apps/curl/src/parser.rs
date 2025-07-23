@@ -36,7 +36,15 @@ pub fn to_adders(url: &Url) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error
                     if let Some(p) = url.port() {
                         port = p;
                     } else {
+                        if url.scheme() == "http"{
                         port = 80;
+                        } else if url.scheme() == "https"
+                        {
+                            port = 443;
+                        }else
+                        {
+                            return Err(format!("unsupported scheme").into());
+                        }
                     }
                     for ipi in &ips {
                         res.push(SocketAddr::new(*ipi, port));

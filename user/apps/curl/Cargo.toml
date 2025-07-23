@@ -11,3 +11,6 @@ authors = [ "Rene <2114678406@qq.com>" ]
 clap = { version = "4.0", features = ["derive"] }
 url = "2.4"
 trust-dns-resolver = "0.20"
+rustls = "0.23"
+rustls-native-certs = "0.7"
+rustls-pki-types = "1.4"
