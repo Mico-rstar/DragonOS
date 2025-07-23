@@ -69,7 +69,7 @@ fn main() {
             request.https_get(&addrs).unwrap();
         } else if method == "POST" {
             // 使用默认header进行get
-            // request.https_post(&addrs).unwrap();
+            request.https_post(&addrs).unwrap();
         }
     } else if scheme == "http" {
         if method == "GET" {

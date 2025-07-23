@@ -1,10 +1,11 @@
+use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
 use std::io::Read;
 use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
-use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
 use std::sync::Arc;
+use std::time::Duration;
 
+#[derive(Copy, Clone)]
 enum Method {
     GET,
     POST,
@@ -134,7 +135,7 @@ impl request {
         self.construct_header(Method::POST);
         let request =
             self.header.clone().unwrap_or_default() + &self.data.clone().unwrap_or_default();
-        println!("request: {}", request);
+        // println!("request: {}", request);
 
         // 发送请求
         stream.write_all(request.as_bytes())?;
@@ -168,47 +169,53 @@ impl request {
         Ok(())
     }
 
-    pub fn extract_body(response: &str) -> String {
-        // 查找第一个空行（分隔头部和body）
-        if let Some(empty_line_pos) = response.find("\r\n\r\n") {
-            // 跳过空行后的部分就是body
-            String::from(&response[empty_line_pos + 4..])
-        } else if let Some(empty_line_pos) = response.find("\n\n") {
-            // 有些响应可能只用单个换行符
-            String::from(&response[empty_line_pos + 2..])
-        } else {
-            String::new()
-        }
-    }
+
 
     pub fn https_get(&mut self, addrs: &[SocketAddr]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut last_error = None;
+        let mut last_error = None;
 
-    for addr in addrs {
-        let ip = addr.ip().to_string();
-        let port = addr.port();
+        for addr in addrs {
+            let ip = addr.ip().to_string();
+            let port = addr.port();
 
-        match self.try_https_get(ip, port) {
-            Ok(()) => return Ok(()),  // 成功则立即返回
-            Err(e) => last_error = Some(e),  // 失败则记录错误
+            match self.try_https(ip, port, Method::GET) {
+                Ok(()) => return Ok(()),        // 成功则立即返回
+                Err(e) => last_error = Some(e), // 失败则记录错误
+            }
         }
+
+        // 所有地址都失败，返回最后一个错误
+        last_error.map_or_else(
+            || Ok(()),  // 如果 last_error 为空，返回 Ok(())
+            |e| Err(e), // 否则返回最后一个错误
+        )
     }
 
-    // 所有地址都失败，返回最后一个错误
-    last_error.map_or_else(
-        || Ok(()),  // 如果 last_error 为空，返回 Ok(())
-        |e| Err(e),  // 否则返回最后一个错误
-    )
-}
+    pub fn https_post(&mut self, addrs: &[SocketAddr]) -> Result<(), Box<dyn std::error::Error>> {
+        let mut last_error = None;
 
+        for addr in addrs {
+            let ip = addr.ip().to_string();
+            let port = addr.port();
 
-    fn try_https_get(&mut self, HOST: String, PORT: u16) -> Result<(), Box<dyn std::error::Error>> {
+            match self.try_https(ip, port, Method::POST) {
+                Ok(()) => return Ok(()),        // 成功则立即返回
+                Err(e) => last_error = Some(e), // 失败则记录错误
+            }
+        }
 
+        // 所有地址都失败，返回最后一个错误
+        last_error.map_or_else(
+            || Ok(()),  // 如果 last_error 为空，返回 Ok(())
+            |e| Err(e), // 否则返回最后一个错误
+        )
+    }
 
-        // 1. 构造完整的请求头
-        self.construct_header(Method::GET);
+    fn try_https(&mut self, HOST: String, PORT: u16, method: Method) -> Result<(), Box<dyn std::error::Error>> {
+        // 构造完整的请求头
+        self.construct_header(method.clone());
 
-        // 2. 配置 `rustls` 客户端以跳过验证
+        // 配置 `rustls` 客户端以跳过验证
         // 创建一个危险的客户端配置构建器，允许不安全的证书验证
         let mut config = rustls::ClientConfig::builder()
             .dangerous()
@@ -227,7 +234,6 @@ impl request {
         //     .with_root_certificates(root_cert_store) // 设置信任的根证书
         //     .with_no_client_auth(); // 指定客户端不需要提供证书进行验证
 
-        // 3. 准备 TLS 连接
         let host = self
             .url
             .host_str()
@@ -239,20 +245,20 @@ impl request {
         let server_name: ServerName = host.to_string().try_into().map_err(|_| "无效的DNS名称")?;
         let mut client_conn = rustls::ClientConnection::new(Arc::new(config), server_name)?;
 
-        // 4. 建立 TCP 连接
         let mut tcp_stream = TcpStream::connect((HOST, PORT))?;
         // tcp_stream.set_read_timeout(Some(Duration::new(3, 0)));
-        println!("✅ TCP 连接已建立。");
 
-        // 5. 将 TCP 流与 TLS 会话绑定
         let mut tls_stream = rustls::Stream::new(&mut client_conn, &mut tcp_stream);
 
-        // 6. 发送 HTTP GET 请求
-        let request = &self.header.clone().unwrap_or_default();
-        println!("\n🚀 正在发送 HTTP 请求:\n---\n{}---", request);
+        let request;
+        match method {
+            Method::GET => request = self.header.clone().unwrap_or_default(),
+            Method::POST => request =
+            self.header.clone().unwrap_or_default() + &self.data.clone().unwrap_or_default(),
+        }
+        
         tls_stream.write_all(request.as_bytes())?;
         tls_stream.flush()?;
-        println!("✅ 请求已发送，等待响应...");
 
         // 7. 读取 HTTP 响应
         let mut buffer = [0; 8192];
@@ -277,6 +283,7 @@ impl request {
 
         Ok(())
     }
+
 }
 
 // 定义一个自定义的证书验证器
