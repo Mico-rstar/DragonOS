@@ -241,6 +241,8 @@ QEMU_ARGUMENT+=" ${QEMU_SHM_OBJECT} "
 QEMU_ARGUMENT+=" ${QEMU_ACCELARATE} "
 
 QEMU_ARGUMENT+=" -D ../qemu.log "
+QEMU_ARGUMENT+=" -S"
+
 
 
 # 安装riscv64的uboot
