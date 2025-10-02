@@ -1,0 +1,41 @@
+{
+    "tasks": [
+        {
+            "label": "Run make run-nographic",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run-nographic"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Run make qemu-nographic",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "qemu-nographic"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Run make user-debug",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "user-debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ],
+    "version": "2.0.0"
+}

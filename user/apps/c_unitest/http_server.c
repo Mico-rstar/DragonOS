@@ -198,6 +198,8 @@ int main(int argc, char const *argv[]) {
       exit(EXIT_CODE);
     }
 
+    printf("Accept successfully\n");
+
     // 接收客户端消息
     valread = read(new_socket, buffer, MAX_REQUEST_SIZE);
     printf("%s\n", buffer);

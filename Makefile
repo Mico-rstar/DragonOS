@@ -123,6 +123,12 @@ run-uefi: check_arch
 	$(MAKE) write_diskimage-uefi || exit 1
 	$(MAKE) qemu-uefi
 	
+# 只编译用户程序，写入磁盘，启动qemu，不显示图像
+user-debug: check_arch
+	$(MAKE) user -j $(NPROCS)
+	$(MAKE) write_diskimage || exit 1
+	$(MAKE) qemu-nographic
+
 # 编译并启动QEMU
 run: check_arch
 	$(MAKE) all -j $(NPROCS)
