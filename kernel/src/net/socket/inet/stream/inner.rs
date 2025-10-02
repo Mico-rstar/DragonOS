@@ -1,13 +1,16 @@
-use core::sync::atomic::AtomicUsize;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::filesystem::epoll::EPollEventType;
 use crate::libs::rwlock::RwLock;
 use crate::net::socket::{self, inet::Types};
+use crate::libs::spinlock::SpinLock;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use alloc::collections::VecDeque;
 use smoltcp;
 use smoltcp::socket::tcp;
 use system_error::SystemError;
+use log::debug;
 
 // pub const DEFAULT_METADATA_BUF_SIZE: usize = 1024;
 pub const DEFAULT_RX_BUF_SIZE: usize = 512 * 1024;
@@ -286,6 +289,53 @@ impl Connecting {
             })
     }
 }
+
+#[derive(Debug)]
+pub(super) struct Backlog {
+    backlog: AtomicUsize,
+    addr: smoltcp::wire::IpListenEndpoint,
+    inners: SpinLock<VecDeque<socket::inet::BoundInner>>,
+}
+
+impl Backlog {
+    fn new(
+        backlog: usize,
+        addr: smoltcp::wire::IpListenEndpoint
+    ) -> Self {
+
+        Self {
+            addr: addr,
+            backlog: AtomicUsize::new(backlog),
+            inners: SpinLock::new(VecDeque::with_capacity(backlog)),
+        }
+    }
+
+    fn set_backlog(&self, backlog: usize) {
+        let _ = self.backlog.swap(backlog, Ordering::Relaxed);
+    }
+
+    fn addr(&self) -> &smoltcp::wire::IpListenEndpoint {
+        &self.addr
+    }
+
+    fn push_inner(&self, inner: socket::inet::BoundInner) -> Result<(), (socket::inet::BoundInner, SystemError)>{
+        let mut inners = self.inners.lock();
+        if inners.len() >= self.backlog.load(Ordering::Relaxed) {
+            debug!("the inners queue on the listening socket is full");
+            return Err((inner, SystemError::EAGAIN_OR_EWOULDBLOCK));
+        } else {
+            inners.push_back(inner)
+        }
+        return Ok(());
+    }
+
+    fn pop_inner(&self) -> Option<socket::inet::BoundInner> {
+        let mut inners = self.inners.lock();
+        inners.pop_front()
+    }
+}
+
+
 
 #[derive(Debug)]
 pub struct Listening {
