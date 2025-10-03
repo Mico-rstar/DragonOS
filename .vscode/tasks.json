@@ -1,25 +1,41 @@
 {
-    // 使用 IntelliSense 了解相关属性。 
-    // 悬停以查看现有属性的描述。
-    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-          {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug kernel.elf",
-            "stopOnEntry": false,
-            "targetCreateCommands": ["target create ${workspaceFolder}/bin/kernel/kernel.elf"],
-            "program": "${workspaceFolder}/bin/kernel/kernel.elf",
-            "processCreateCommands": [
-                "gdb-remote 127.0.0.1:1234",
-                "settings set target.process.follow-fork-mode child",
-                "continue",
+    "tasks": [
+        {
+            "label": "Run make run-nographic",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run-nographic"
             ],
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "sourceLanguages": ["rust"],
-            "console": "internalConsole"
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Run make qemu-nographic",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "qemu-nographic"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Run make user-debug",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "user-debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
         }
-    ]
+    ],
+    "version": "2.0.0"
 }
