@@ -52,7 +52,7 @@ int main()
         return EXIT_FAILURE;
     }
 
-    printf("Listening on port 12580...\n");
+    printf("Listening on port 12580......\n");
 
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
@@ -78,7 +78,7 @@ int main()
 
         printf("recv connection\n");
 
-        sleep(1);
+        // sleep(1);
 
         close(*client_sockfd);
     
