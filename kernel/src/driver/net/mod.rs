@@ -203,54 +203,41 @@ impl IfaceCommon {
         D: smoltcp::phy::Device + ?Sized,
     {
         let timestamp = crate::time::Instant::now().into();
-        let mut sockets = self.sockets.lock_irqsave();
         let mut interface = self.smol_iface.lock_irqsave();
 
-        let (has_events, poll_at) = {
-            (
-                matches!(
-                    interface.poll(timestamp, device, &mut sockets),
-                    smoltcp::iface::PollResult::SocketStateChanged
-                ),
-                loop {
-                    let poll_at = interface.poll_at(timestamp, &sockets);
-                    let Some(instant) = poll_at else {
-                        break poll_at;
-                    };
-                    if instant > timestamp {
-                        break poll_at;
-                    }
-                },
-            )
-        };
-
+        // 逐包处理并通知
+        loop {
+            let mut sockets = self.sockets.lock_irqsave();
+            let result = interface.poll_ingress_single(timestamp, device, &mut sockets);
         // drop sockets here to avoid deadlock
+
+            drop(sockets);
+            match result {
+                smoltcp::iface::PollIngressSingleResult::None => break,
+                smoltcp::iface::PollIngressSingleResult::PacketProcessed => {},
+                smoltcp::iface::PollIngressSingleResult::SocketStateChanged => {
+                    self.bounds.read_irqsave().iter().for_each(|bound_socket| {
+                        bound_socket.notify();
+                        let _woke = bound_socket
+                            .wait_queue()
+                            .wakeup(Some(ProcessState::Blocked(true)));
+                    });
+                }
+            }
+        }
+        let mut sockets = self.sockets.lock_irqsave();
+        let _ = interface.poll_egress(timestamp, device, &mut sockets);
+        let poll_at = interface.poll_at(timestamp, &sockets);
+
         drop(interface);
-        drop(sockets);
 
         use core::sync::atomic::Ordering;
         if let Some(instant) = poll_at {
-            let _old_instant = self.poll_at_ms.load(Ordering::Relaxed);
             let new_instant = instant.total_millis() as u64;
             self.poll_at_ms.store(new_instant, Ordering::Relaxed);
-
-            // TODO: poll at
-            // if old_instant == 0 || new_instant < old_instant {
-            //     self.polling_wait_queue.wake_all();
-            // }
         } else {
             self.poll_at_ms.store(0, Ordering::Relaxed);
         }
-
-        self.bounds.read_irqsave().iter().for_each(|bound_socket| {
-            // incase our inet socket missed the event, we manually notify it each time we poll
-            if has_events {
-                bound_socket.notify();
-                let _woke = bound_socket
-                    .wait_queue()
-                    .wakeup(Some(ProcessState::Blocked(true)));
-            }
-        });
 
         // TODO: remove closed sockets
         // let closed_sockets = self
