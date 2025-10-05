@@ -324,7 +324,7 @@ impl Listening {
 
     pub fn update_io_events(&self, pollee: &AtomicUsize) {
         let mut inners_guard = self.inners.write();
-        let inner = match inners_guard.front() {
+        let inner = match inners_guard.back() {
             Some(inner) => inner,
             None => return debug!("the tcp socket inners is empty"),
         };
