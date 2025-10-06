@@ -209,12 +209,11 @@ impl IfaceCommon {
         loop {
             let mut sockets = self.sockets.lock_irqsave();
             let result = interface.poll_ingress_single(timestamp, device, &mut sockets);
-        // drop sockets here to avoid deadlock
-
+            // drop sockets here to avoid deadlock
             drop(sockets);
             match result {
                 smoltcp::iface::PollIngressSingleResult::None => break,
-                smoltcp::iface::PollIngressSingleResult::PacketProcessed => {},
+                smoltcp::iface::PollIngressSingleResult::PacketProcessed => {}
                 smoltcp::iface::PollIngressSingleResult::SocketStateChanged => {
                     self.bounds.read_irqsave().iter().for_each(|bound_socket| {
                         bound_socket.notify();
@@ -227,14 +226,29 @@ impl IfaceCommon {
         }
         let mut sockets = self.sockets.lock_irqsave();
         let _ = interface.poll_egress(timestamp, device, &mut sockets);
-        let poll_at = interface.poll_at(timestamp, &sockets);
+
+        let poll_at = loop {
+            let poll_at = interface.poll_at(timestamp, &sockets);
+            let Some(instant) = poll_at else {
+                break poll_at;
+            };
+            if instant > timestamp {
+                break poll_at;
+            }
+        };
 
         drop(interface);
 
         use core::sync::atomic::Ordering;
         if let Some(instant) = poll_at {
+            let _old_instant = self.poll_at_ms.load(Ordering::Relaxed);
             let new_instant = instant.total_millis() as u64;
             self.poll_at_ms.store(new_instant, Ordering::Relaxed);
+
+            // TODO: poll at
+            // if old_instant == 0 || new_instant < old_instant {
+            //     self.polling_wait_queue.wake_all();
+            // }
         } else {
             self.poll_at_ms.store(0, Ordering::Relaxed);
         }
