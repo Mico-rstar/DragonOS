@@ -45,7 +45,7 @@ int main()
     }
 
     // 调用 listen 系统调用
-    if (listen(sockfd, 5) < 0)
+    if (listen(sockfd, 10) < 0)
     {
         perror("listen failed");
         close(sockfd);
@@ -57,8 +57,9 @@ int main()
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
     char buffer[1024];
+    int cnt = 0;
 
-    while (1)
+    while (cnt < 100)
     {
         int *client_sockfd = malloc(sizeof(int));
         if (!client_sockfd)
@@ -75,11 +76,7 @@ int main()
             free(client_sockfd);
             continue;
         }
-
-        printf("recv connection\n");
-
-        // sleep(1);
-
+        printf("the %dth connection\n", ++cnt);
         close(*client_sockfd);
     
     }
